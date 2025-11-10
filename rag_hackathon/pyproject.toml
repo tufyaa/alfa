@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-hackathon"
+version = "0.1.0"
+description = "RAG retrieval pipeline baseline for hackathon"
+authors = [{ name = "Hackathon Team" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
