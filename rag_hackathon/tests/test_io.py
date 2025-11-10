@@ -9,7 +9,12 @@ def test_load_questions_and_websites(tmp_path: Path) -> None:
     questions_path = tmp_path / "questions_clean.csv"
     websites_path = tmp_path / "websites_updated.csv"
 
-    pd.DataFrame({"q_id": [1, 2], "query": ["что такое rag", "как построить индекс"]}).to_csv(questions_path, index=False)
+    pd.DataFrame(
+        {
+            "q_id": [1, 2],
+            "query": ["Как запустить rag пайплайн?", "Где найти топ-5 сайтов?"],
+        }
+    ).to_csv(questions_path, index=False)
     pd.DataFrame(
         {
             "web_id": [10, 20],

@@ -3,10 +3,11 @@ numpy==1.26.4
 scikit-learn==1.4.2
 sentence-transformers==2.6.1
 transformers==4.38.2
-faiss-cpu==1.7.4
+faiss-cpu==1.8.0
 rank-bm25==0.2.2
 razdel==0.5.0
 beautifulsoup4==4.12.3
 typer==0.12.3
+click==8.1.7
 pytest==8.1.1
 tqdm==4.66.4

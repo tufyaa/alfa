@@ -23,11 +23,19 @@ def build_all(paths: DataPaths, config: PipelineConfig) -> dict:
     websites_df = load_websites(Path(paths.websites))
     processed_docs = preprocess_documents(websites_df.to_dict("records"))
     processed_df = pd.DataFrame(processed_docs)
+    processed_df["web_id"] = processed_df["web_id"].astype(int)
+    processed_df = processed_df.drop_duplicates(subset=["web_id"])
+    processed_df["doc_text"] = processed_df["doc_text"].fillna("")
+    processed_df = processed_df[processed_df["doc_text"].str.len() > 0].reset_index(drop=True)
 
-    chunk_params = ChunkParams(config.chunk_chars, config.chunk_overlap)
-    chunks_df = chunk_documents(processed_docs, chunk_params)
-    chunks_df = chunks_df.drop_duplicates(subset=["chunk_id"]).reset_index(drop=True)
-    chunks_df = chunks_df[chunks_df["chunk_text"].str.len() > 0]
+    chunk_params = ChunkParams(config.chunk_chars, config.chunk_overlap, config.min_chunk_chars)
+    chunks_df = chunk_documents(processed_df.to_dict("records"), chunk_params)
+    if chunks_df.empty:
+        raise ValueError("No chunks generated. Check preprocessing parameters.")
+    chunks_df = (
+        chunks_df.drop_duplicates(subset=["web_id", "chunk_text"])
+        .reset_index(drop=True)
+    )
 
     LOGGER.info("Embedding %d chunks", len(chunks_df))
     embeddings = embed_dataframe(
@@ -75,25 +83,18 @@ def answer_all_questions(
     retriever: Retriever,
     top_k: int | None = None,
 ) -> pd.DataFrame:
-    results = []
-    all_web_ids = retriever.websites_df["web_id"].tolist() if hasattr(retriever, "websites_df") else []
-    for row in questions_df.itertuples():
-        web_ids = retriever.retrieve_topk_for_query(row.query)
-        if top_k is not None:
-            web_ids = web_ids[:top_k]
-        if len(web_ids) < retriever.config.top_k_return:
-            for fallback in all_web_ids:
-                if fallback not in web_ids:
-                    web_ids.append(fallback)
-                if len(web_ids) >= retriever.config.top_k_return:
-                    break
-        results.append({"q_id": int(row.q_id), "web_list": web_ids[:retriever.config.top_k_return]})
-    df = pd.DataFrame(results)
-    return df
+    if questions_df.empty:
+        return pd.DataFrame(columns=["q_id", "web_list"])
+    queries = questions_df["query"].astype(str).fillna("").tolist()
+    q_ids = questions_df["q_id"].astype(int).tolist()
+    target_k = top_k or retriever.config.top_k_return
+    retrieved_lists = retriever.retrieve_batch(queries, top_k=target_k)
+    records = [{"q_id": q_id, "web_list": web_ids} for q_id, web_ids in zip(q_ids, retrieved_lists)]
+    return pd.DataFrame(records)
 
 
 def dataframe_to_submission(df: pd.DataFrame) -> pd.DataFrame:
-    def format_list(row: Iterable[int | None]) -> str:
+    def _format(row: Iterable[int | None]) -> str:
         values: list[int] = []
         for item in row:
             if item is None:
@@ -101,12 +102,10 @@ def dataframe_to_submission(df: pd.DataFrame) -> pd.DataFrame:
             val = int(item)
             if val not in values:
                 values.append(val)
-        candidate = 1
-        while len(values) < 5:
-            while candidate in values:
-                candidate += 1
-            values.append(candidate)
-            candidate += 1
-        return str(values[:5])
+            if len(values) == 5:
+                break
+        if len(values) != 5:
+            raise ValueError("Each question must have exactly 5 unique web_id predictions.")
+        return str(values)
 
-    return pd.DataFrame({"q_id": df["q_id"], "web_list": df["web_list"].apply(format_list)})
+    return pd.DataFrame({"q_id": df["q_id"].astype(int), "web_list": df["web_list"].apply(_format)})

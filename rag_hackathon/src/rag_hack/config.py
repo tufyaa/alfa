@@ -22,8 +22,10 @@ class PipelineConfig:
 
     chunk_chars: int = 800
     chunk_overlap: int = 120
+    min_chunk_chars: int = 80
     top_k_ann: int = 100
     top_k_return: int = 5
+    bm25_top_k: int = 200
     hybrid_alpha: float = 0.7
     model_name: str = "ai-forever/ru-en-RoSBERTa"
     batch_size: int = 32

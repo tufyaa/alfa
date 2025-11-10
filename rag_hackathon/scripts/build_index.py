@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -17,13 +18,15 @@ def main(
     outdir: Path = typer.Option(Path("artifacts"), help="Output directory for artifacts"),
     chunk_chars: int = typer.Option(800, help="Chunk size in characters"),
     chunk_overlap: int = typer.Option(120, help="Chunk overlap in characters"),
+    chunk_min_chars: int = typer.Option(80, help="Discard chunks shorter than this length"),
     batch_size: int = typer.Option(32, help="Embedding batch size"),
-    device: str | None = typer.Option(None, help="Torch device for embeddings"),
+    device: Optional[str] = typer.Option(None, help="Torch device for embeddings"),
 ):
     paths = DataPaths(websites=websites)
     config = PipelineConfig(
         chunk_chars=chunk_chars,
         chunk_overlap=chunk_overlap,
+        min_chunk_chars=chunk_min_chars,
         batch_size=batch_size,
         device=device,
         artifacts_dir=outdir,

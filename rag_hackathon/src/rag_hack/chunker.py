@@ -11,6 +11,7 @@ import pandas as pd
 class ChunkParams:
     chunk_chars: int
     chunk_overlap: int
+    min_chunk_chars: int = 0
 
 
 def _chunk_text(text: str, chunk_chars: int, chunk_overlap: int) -> list[str]:
@@ -35,7 +36,12 @@ def chunk_documents(docs: Iterable[dict], params: ChunkParams) -> pd.DataFrame:
         web_id = doc["web_id"]
         text = doc.get("doc_text", "")
         chunks = _chunk_text(text, params.chunk_chars, params.chunk_overlap)
+        last_chunk = ""
         for order, chunk in enumerate(chunks):
+            if params.min_chunk_chars and len(chunk) < params.min_chunk_chars:
+                continue
+            if chunk == last_chunk:
+                continue
             records.append(
                 {
                     "web_id": web_id,
@@ -45,6 +51,7 @@ def chunk_documents(docs: Iterable[dict], params: ChunkParams) -> pd.DataFrame:
                     "n_chars": len(chunk),
                 }
             )
+            last_chunk = chunk
     if not records:
         return pd.DataFrame(columns=["web_id", "chunk_id", "chunk_text", "chunk_order", "n_chars"])
     df = pd.DataFrame.from_records(records)

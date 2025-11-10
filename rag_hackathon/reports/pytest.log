@@ -1,0 +1,12 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.8, pytest-8.1.1, pluggy-1.6.0
+rootdir: C:\proga\RAG\alfa\rag_hackathon
+configfile: pyproject.toml
+collected 4 items
+
+tests\test_chunk_embed.py .                                              [ 25%]
+tests\test_index_retrieve.py .                                           [ 50%]
+tests\test_io.py .                                                       [ 75%]
+tests\test_submission_format.py .                                        [100%]
+
+============================== 4 passed in 6.51s ==============================

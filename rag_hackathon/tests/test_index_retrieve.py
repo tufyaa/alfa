@@ -4,23 +4,30 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rag_hack.chunker import ChunkParams, chunk_documents
 from rag_hack import embedder
+from rag_hack.chunker import ChunkParams, chunk_documents
+from rag_hack.config import PipelineConfig
 from rag_hack.embedder import embed_dataframe
 from rag_hack.indexer import build_faiss_index
 from rag_hack.pipeline import answer_all_questions
 from rag_hack.preprocess import preprocess_documents
 from rag_hack.retrieve import Retriever
-from rag_hack.config import PipelineConfig
 
 
 class DummyModel:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def encode(self, texts, batch_size=32, show_progress_bar=True, convert_to_numpy=True, normalize_embeddings=False):
+    def encode(
+        self,
+        texts,
+        batch_size: int = 32,
+        show_progress_bar: bool = True,
+        convert_to_numpy: bool = True,
+        normalize_embeddings: bool = False,
+    ):
         vecs = []
-        for idx, text in enumerate(texts):
+        for text in texts:
             base = float(len(text))
             vecs.append(np.array([base, base + 1, base + 2], dtype=np.float32))
         return np.vstack(vecs)
@@ -28,8 +35,6 @@ class DummyModel:
 
 @pytest.fixture(autouse=True)
 def patch_sentence_transformer(monkeypatch: pytest.MonkeyPatch) -> None:
-    from rag_hack import embedder
-
     monkeypatch.setattr(embedder, "SentenceTransformer", DummyModel)
 
 
@@ -37,8 +42,8 @@ def test_retrieve_returns_five_ids() -> None:
     websites = pd.DataFrame(
         {
             "web_id": range(1, 7),
-            "title": [f"Документ {i}" for i in range(1, 7)],
-            "text": [f"Содержание документа {i}." for i in range(1, 7)],
+            "title": [f"Ответ про RAG {i}" for i in range(1, 7)],
+            "text": [f"Описание шага {i}. Подробности о пайплайне." for i in range(1, 7)],
         }
     )
     processed = preprocess_documents(websites.to_dict("records"))
@@ -46,10 +51,20 @@ def test_retrieve_returns_five_ids() -> None:
     embeddings = embed_dataframe(chunks, "chunk_text", model_name="dummy")
     indexer = build_faiss_index(embeddings, chunks)
 
-    config = PipelineConfig(top_k_ann=10, top_k_return=5)
-    retriever = Retriever(indexer=indexer, embedder=embedder.TextEmbedder("dummy"), websites_df=pd.DataFrame(processed), config=config)
+    config = PipelineConfig(top_k_ann=10, top_k_return=5, bm25_top_k=20)
+    retriever = Retriever(
+        indexer=indexer,
+        embedder=embedder.TextEmbedder("dummy"),
+        websites_df=pd.DataFrame(processed),
+        config=config,
+    )
 
-    questions = pd.DataFrame({"q_id": [1, 2, 3], "query": ["документ", "содержание", "пример"]})
+    questions = pd.DataFrame(
+        {
+            "q_id": [1, 2, 3],
+            "query": ["Что такое rag?", "Как построить индекс?", "Как получить топ сайты?"],
+        }
+    )
     answers = answer_all_questions(questions, retriever)
 
     assert len(answers) == 3
