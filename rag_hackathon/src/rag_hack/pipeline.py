@@ -10,7 +10,7 @@ import pandas as pd
 from .chunker import ChunkParams, chunk_documents
 from .config import DataPaths, PipelineConfig
 from .data import load_websites
-from .embedder import TextEmbedder, embed_dataframe
+from .embedder import TextEmbedder, TFIDFEmbedder, embed_dataframe, save_tfidf_components, load_tfidf_components
 from .indexer import FaissIndexer, build_faiss_index
 from .preprocess import preprocess_documents
 from .retrieve import Retriever
@@ -38,15 +38,22 @@ def build_all(paths: DataPaths, config: PipelineConfig) -> dict:
     )
 
     LOGGER.info("Embedding %d chunks", len(chunks_df))
-    embeddings = embed_dataframe(
-        chunks_df,
-        text_column="chunk_text",
-        model_name=config.model_name,
-        batch_size=config.batch_size,
-        device=config.device,
-        output_dir=config.artifacts_dir,
-        file_prefix="chunks",
-    )
+    if config.embed_backend == "tfidf":
+        # Fit local TFIDF embedder, persist components, and produce embeddings
+        tfidf = TFIDFEmbedder()
+        tfidf.fit(chunks_df["chunk_text"].tolist())
+        embeddings = tfidf.transform(chunks_df["chunk_text"].tolist())
+        save_tfidf_components(tfidf, config.artifacts_dir / "tfidf_svd.joblib")
+    else:
+        embeddings = embed_dataframe(
+            chunks_df,
+            text_column="chunk_text",
+            model_name=config.model_name,
+            batch_size=config.batch_size,
+            device=config.device,
+            output_dir=config.artifacts_dir,
+            file_prefix="chunks",
+        )
 
     indexer = build_faiss_index(embeddings, chunks_df)
     index_path = config.artifacts_dir / "chunks.index"
@@ -65,16 +72,20 @@ def build_all(paths: DataPaths, config: PipelineConfig) -> dict:
     }
 
 
-def load_index_and_data(artifacts_dir: Path, config: PipelineConfig | None = None) -> tuple[FaissIndexer, pd.DataFrame, TextEmbedder]:
+def load_index_and_data(artifacts_dir: Path, config: PipelineConfig | None = None):
     config = config or PipelineConfig()
-    index_path = artifacts_dir / "chunks.index"
+    index_path = artifacts_dir / "chunks.index.npz"
     mapping_path = artifacts_dir / "chunks_mapping.json"
     websites_path = artifacts_dir / "websites_processed.parquet"
     if not index_path.exists() or not mapping_path.exists():
         raise FileNotFoundError("Index artifacts not found")
     indexer = FaissIndexer.load(index_path, mapping_path)
     websites_df = pd.read_parquet(websites_path)
-    embedder = TextEmbedder(config.model_name, device=config.device, batch_size=config.batch_size)
+    tfidf_path = artifacts_dir / "tfidf_svd.joblib"
+    if tfidf_path.exists():
+        embedder = load_tfidf_components(tfidf_path)
+    else:
+        embedder = TextEmbedder(config.model_name, device=config.device, batch_size=config.batch_size)
     return indexer, websites_df, embedder
 
 

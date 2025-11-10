@@ -2,9 +2,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Optional
 
 import typer
+
+
+CURRENT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(CURRENT_DIR / "src"))
 
 from rag_hack.config import PipelineConfig
 from rag_hack.data import load_questions
@@ -16,8 +21,8 @@ app = typer.Typer()
 
 @app.command()
 def main(
-    questions: Path = typer.Option(Path("data/questions_clean.csv"), help="Questions CSV"),
-    websites: Path = typer.Option(Path("data/websites_updated.csv"), help="Websites CSV"),
+    questions: Path = typer.Option(Path("../questions_clean.csv"), help="Questions CSV"),
+    websites: Path = typer.Option(Path("../websites_updated.csv"), help="Websites CSV"),
     index: Path = typer.Option(Path("artifacts"), help="Directory with FAISS index"),
     out: Path = typer.Option(Path("submit/raw_top5.parquet"), help="Output parquet"),
     top_k_ann: int = typer.Option(100, help="Number of ANN candidates"),

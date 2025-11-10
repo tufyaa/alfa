@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Optional
 
 import typer
+
+CURRENT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(CURRENT_DIR / "src"))
 
 from rag_hack.config import PipelineConfig
 from rag_hack.data import load_questions

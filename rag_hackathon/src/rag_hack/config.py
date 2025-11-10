@@ -28,6 +28,7 @@ class PipelineConfig:
     bm25_top_k: int = 200
     hybrid_alpha: float = 0.7
     model_name: str = "ai-forever/ru-en-RoSBERTa"
+    embed_backend: str = "st"  # "st" (SentenceTransformers) or "tfidf"
     batch_size: int = 32
     device: Optional[str] = None
     artifacts_dir: Path = field(default_factory=lambda: Path("artifacts"))
