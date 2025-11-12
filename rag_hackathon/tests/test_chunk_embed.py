@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from rag_hack.chunker import ChunkParams, chunk_documents
@@ -34,6 +33,8 @@ def patch_sentence_transformer(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_chunk_and_embed(tmp_path: Path) -> None:
+    import pandas as pd
+
     docs = pd.DataFrame(
         {
             "web_id": [1, 2],

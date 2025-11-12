@@ -5,12 +5,11 @@ import logging
 from pathlib import Path
 from typing import Iterable
 
+from .embedder import TextEmbedder, embed_dataframe
 import pandas as pd
-
 from .chunker import ChunkParams, chunk_documents
 from .config import DataPaths, PipelineConfig
 from .data import load_websites
-from .embedder import TextEmbedder, embed_dataframe
 from .indexer import FaissIndexer, build_faiss_index
 from .preprocess import preprocess_documents
 from .retrieve import Retriever

@@ -9,4 +9,4 @@ tests\test_index_retrieve.py .                                           [ 50%]
 tests\test_io.py .                                                       [ 75%]
 tests\test_submission_format.py .                                        [100%]
 
-============================== 4 passed in 6.51s ==============================
+============================== 4 passed in 0.25s ==============================

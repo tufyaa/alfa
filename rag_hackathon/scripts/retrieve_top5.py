@@ -7,8 +7,8 @@ from typing import Optional
 import typer
 
 from rag_hack.config import PipelineConfig
-from rag_hack.data import load_questions
 from rag_hack.pipeline import answer_all_questions, load_index_and_data
+from rag_hack.data import load_questions
 from rag_hack.retrieve import Retriever
 
 app = typer.Typer()

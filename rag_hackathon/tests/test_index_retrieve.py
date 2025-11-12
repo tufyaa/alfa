@@ -1,7 +1,6 @@
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from rag_hack import embedder
@@ -39,6 +38,8 @@ def patch_sentence_transformer(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_retrieve_returns_five_ids() -> None:
+    import pandas as pd
+
     websites = pd.DataFrame(
         {
             "web_id": range(1, 7),

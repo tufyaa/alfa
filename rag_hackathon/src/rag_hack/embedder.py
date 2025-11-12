@@ -6,9 +6,9 @@ import logging
 from pathlib import Path
 from typing import Iterable
 
+from sentence_transformers import SentenceTransformer
 import numpy as np
 import pandas as pd
-from sentence_transformers import SentenceTransformer
 
 LOGGER = logging.getLogger(__name__)
 
