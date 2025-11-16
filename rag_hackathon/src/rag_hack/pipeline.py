@@ -88,10 +88,22 @@ def load_index_and_data(artifacts_dir: Path, config: PipelineConfig | None = Non
     indexer = FaissIndexer.load(index_path, mapping_path)
     websites_df = pd.read_parquet(websites_path)
     tfidf_path = artifacts_dir / "tfidf_svd.joblib"
-    if tfidf_path.exists():
-        embedder = load_tfidf_components(tfidf_path)
+    # Choose embedder according to config preference; do not auto-pick TFIDF
+    # if the runtime config requests SentenceTransformers (default).
+    if config.embed_backend == "tfidf":
+        if tfidf_path.exists():
+            embedder = load_tfidf_components(tfidf_path)
+            LOGGER.info("Loaded TFIDF embedder components from %s", tfidf_path)
+        else:
+            LOGGER.warning(
+                "TFIDF components not found at %s; falling back to SentenceTransformer (%s)",
+                tfidf_path,
+                config.model_name,
+            )
+            embedder = TextEmbedder(config.model_name, device=config.device, batch_size=config.batch_size)
     else:
         embedder = TextEmbedder(config.model_name, device=config.device, batch_size=config.batch_size)
+        LOGGER.info("Using SentenceTransformer embedder: %s", config.model_name)
     return indexer, websites_df, embedder
 
 

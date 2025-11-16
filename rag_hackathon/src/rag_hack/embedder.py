@@ -117,18 +117,12 @@ class TextEmbedder:
                 convert_to_numpy=True,
                 normalize_embeddings=False,
             )
-            try:
-                # Avoid multi-processing DataLoader workers that may hang on macOS
-                embeddings = self.model.encode(  # type: ignore[union-attr]
-                    texts_list,
-                    num_workers=0,
-                    **kwargs,
-                )
-            except TypeError:
-                embeddings = self.model.encode(  # type: ignore[union-attr]
-                    texts_list,
-                    **kwargs,
-                )
+            # Call SentenceTransformer.encode without non-standard kwargs.
+            # Newer versions do not accept `num_workers`; passing it raises ValueError.
+            embeddings = self.model.encode(  # type: ignore[union-attr]
+                texts_list,
+                **kwargs,
+            )
         embeddings = embeddings.astype(np.float32)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         norms[norms == 0.0] = 1.0
