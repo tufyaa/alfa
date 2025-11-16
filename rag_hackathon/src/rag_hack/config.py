@@ -23,6 +23,10 @@ class PipelineConfig:
     chunk_chars: int = 800
     chunk_overlap: int = 120
     min_chunk_chars: int = 80
+    # Context-enriched chunking windows (in characters). When both are zero,
+    # behavior is identical to the previous implementation.
+    context_left_chars: int = 0
+    context_right_chars: int = 0
     top_k_ann: int = 100
     top_k_return: int = 5
     bm25_top_k: int = 200

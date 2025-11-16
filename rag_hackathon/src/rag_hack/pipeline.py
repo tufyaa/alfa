@@ -28,7 +28,13 @@ def build_all(paths: DataPaths, config: PipelineConfig) -> dict:
     processed_df["doc_text"] = processed_df["doc_text"].fillna("")
     processed_df = processed_df[processed_df["doc_text"].str.len() > 0].reset_index(drop=True)
 
-    chunk_params = ChunkParams(config.chunk_chars, config.chunk_overlap, config.min_chunk_chars)
+    chunk_params = ChunkParams(
+        config.chunk_chars,
+        config.chunk_overlap,
+        config.min_chunk_chars,
+        config.context_left_chars,
+        config.context_right_chars,
+    )
     chunks_df = chunk_documents(processed_df.to_dict("records"), chunk_params)
     if chunks_df.empty:
         raise ValueError("No chunks generated. Check preprocessing parameters.")
