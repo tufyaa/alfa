@@ -31,11 +31,19 @@ class PipelineConfig:
     top_k_return: int = 5
     bm25_top_k: int = 200
     hybrid_alpha: float = 0.7
+    # Hybrid fusion control: 'weighted' (alpha*ANN + (1-alpha)*BM25) or 'rrf'
+    combine_method: str = "weighted"
+    rrf_k: int = 60
     model_name: str = "ai-forever/ru-en-RoSBERTa"
     embed_backend: str = "st"  # "st" (SentenceTransformers) or "tfidf"
     batch_size: int = 32
     device: Optional[str] = None
     artifacts_dir: Path = field(default_factory=lambda: Path("artifacts"))
+    # Second-stage reranking with a cross-encoder
+    rerank_enable: bool = False
+    rerank_model: Optional[str] = None  # e.g. 'cross-encoder/ms-marco-MiniLM-L-6-v2'
+    rerank_candidates: int = 100  # how many hybrid candidates to rerank
+    rerank_max_chars: int = 1200   # truncate doc text for reranking pairs
 
 
 DEFAULT_CONFIG = PipelineConfig()

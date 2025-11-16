@@ -82,10 +82,21 @@ def chunk_documents(docs: Iterable[dict], params: ChunkParams) -> pd.DataFrame:
                     "chunk_text": enriched_text,
                     "chunk_order": order,
                     "n_chars": len(enriched_text),
+                    # spans for the enriched text within original document
+                    "span_start": enriched_start,
+                    "span_end": enriched_end,
                 }
             )
             last_base_text = base_text_stripped
     if not records:
-        return pd.DataFrame(columns=["web_id", "chunk_id", "chunk_text", "chunk_order", "n_chars"])
+        return pd.DataFrame(columns=[
+            "web_id",
+            "chunk_id",
+            "chunk_text",
+            "chunk_order",
+            "n_chars",
+            "span_start",
+            "span_end",
+        ])
     df = pd.DataFrame.from_records(records)
     return df

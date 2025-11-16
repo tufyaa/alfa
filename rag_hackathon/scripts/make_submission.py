@@ -26,8 +26,14 @@ def main(
     top_k_ann: int = typer.Option(100, help="Number of ANN candidates"),
     bm25_top_k: int = typer.Option(200, help="Number of BM25 candidates"),
     hybrid_alpha: float = typer.Option(0.7, help="Dense/BM25 balance (0..1)"),
+    combine_method: str = typer.Option("weighted", help="Fusion: 'weighted' or 'rrf'"),
+    rrf_k: int = typer.Option(60, help="RRF k parameter (if combine_method=rrf)"),
     batch_size: int = typer.Option(32, help="Embedding batch size"),
     device: Optional[str] = typer.Option(None, help="Torch device"),
+    rerank: bool = typer.Option(False, help="Enable cross-encoder reranking"),
+    rerank_model: Optional[str] = typer.Option(None, help="Cross-encoder model name"),
+    rerank_candidates: int = typer.Option(100, help="Number of candidates to rerank"),
+    rerank_max_chars: int = typer.Option(1200, help="Max chars from doc_text for reranking"),
 ):
     config = PipelineConfig(
         batch_size=batch_size,
@@ -36,6 +42,12 @@ def main(
         top_k_ann=top_k_ann,
         bm25_top_k=bm25_top_k,
         hybrid_alpha=hybrid_alpha,
+        combine_method=combine_method,
+        rrf_k=rrf_k,
+        rerank_enable=rerank,
+        rerank_model=rerank_model,
+        rerank_candidates=rerank_candidates,
+        rerank_max_chars=rerank_max_chars,
     )
     questions_df = load_questions(questions)
     indexer, websites_df, embedder = load_index_and_data(index, config)

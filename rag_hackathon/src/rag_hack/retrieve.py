@@ -11,6 +11,7 @@ from rank_bm25 import BM25Okapi
 from razdel import tokenize
 
 from .config import PipelineConfig
+from .rerank import CrossEncoderReranker
 from .embedder import TextEmbedder
 from .indexer import FaissIndexer
 
@@ -46,6 +47,7 @@ class Retriever:
     _bm25: BM25Okapi | None = field(init=False, default=None)
     _bm25_ids: np.ndarray = field(init=False)
     _bm25_index: dict[int, int] = field(init=False, default_factory=dict)
+    _reranker: CrossEncoderReranker | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         df = self.websites_df.copy()
@@ -69,6 +71,16 @@ class Retriever:
         self._bm25_ids = np.array(order_ids, dtype=np.int64)
         self._bm25_index = {int(web_id): idx for idx, web_id in enumerate(order_ids)}
         self._bm25 = BM25Okapi(tokens) if tokens else None
+        # Lazy reranker initialization controlled by config
+        if getattr(self.config, "rerank_enable", False):
+            try:
+                self._reranker = CrossEncoderReranker(
+                    model_name=self.config.rerank_model,
+                    device=self.config.device,
+                )
+            except Exception:
+                # If CrossEncoder is not available, keep reranker disabled
+                self._reranker = None
 
     # Dense retrieval helpers -------------------------------------------------
     def _ann_candidates(self, query_vec: np.ndarray) -> Dict[int, float]:
@@ -146,14 +158,59 @@ class Retriever:
 
         ann_scores = np.array([candidate_scores.get(web_id, 0.0) for web_id in ordered_candidates], dtype=np.float32)
         bm25_scores = self._subset_lexical_scores(lexical_scores_full, ordered_candidates)
-        ann_scores = _normalize_scores(ann_scores)
-        bm25_scores = _normalize_scores(bm25_scores)
+        combine = getattr(self.config, "combine_method", "weighted")
+        if combine == "rrf":
+            # Reciprocal Rank Fusion of two ranked lists
+            rrf_k = int(getattr(self.config, "rrf_k", 60))
+            ann_ranking = sorted(
+                ((wid, float(s)) for wid, s in zip(ordered_candidates, ann_scores)),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            bm25_ranking = sorted(
+                ((wid, float(s)) for wid, s in zip(ordered_candidates, bm25_scores)),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            ann_pos = {wid: i for i, (wid, _) in enumerate(ann_ranking)}
+            bm25_pos = {wid: i for i, (wid, _) in enumerate(bm25_ranking)}
+            rrf_scores: dict[int, float] = {}
+            for wid in ordered_candidates:
+                score = 0.0
+                if wid in ann_pos:
+                    score += 1.0 / (rrf_k + 1 + ann_pos[wid])
+                if wid in bm25_pos:
+                    score += 1.0 / (rrf_k + 1 + bm25_pos[wid])
+                rrf_scores[wid] = score
+            ranking = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
+        else:
+            # Default: weighted normalized score fusion
+            ann_scores = _normalize_scores(ann_scores)
+            bm25_scores = _normalize_scores(bm25_scores)
+            alpha = float(getattr(self.config, "hybrid_alpha", 0.7))
+            final_scores = alpha * ann_scores + (1 - alpha) * bm25_scores
+            ranking = sorted(zip(ordered_candidates, final_scores), key=lambda x: x[1], reverse=True)
 
-        alpha = self.config.hybrid_alpha
-        final_scores = alpha * ann_scores + (1 - alpha) * bm25_scores
+        ranked_ids = [web_id for web_id, _ in ranking]
 
-        ranking = sorted(zip(ordered_candidates, final_scores), key=lambda x: x[1], reverse=True)
-        top_results = self._ensure_topk([web_id for web_id, _ in ranking], lexical_candidates, target_k)
+        # Optional second-stage reranking with a cross-encoder
+        if self._reranker is not None and getattr(self.config, "rerank_enable", False):
+            pool_n = max(target_k, int(getattr(self.config, "rerank_candidates", 100)))
+            pool_ids = ranked_ids[:pool_n]
+            if pool_ids:
+                max_chars = int(getattr(self.config, "rerank_max_chars", 1200))
+                texts = [
+                    (self._doc_text.get(int(wid), "") or "")[:max_chars]
+                    for wid in pool_ids
+                ]
+                try:
+                    reranked = self._reranker.rerank(query, pool_ids, texts)
+                    ranked_ids = reranked + [wid for wid in ranked_ids if wid not in reranked]
+                except Exception:
+                    # If reranker fails, keep original order
+                    pass
+
+        top_results = self._ensure_topk(ranked_ids, lexical_candidates, target_k)
 
         return top_results
 
